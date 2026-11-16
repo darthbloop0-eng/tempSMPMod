@@ -7,12 +7,12 @@
     "AbstractFireBlockMixin",
     "CampfireBlockMixin",
     "EntityAccessor",
-    "ItemRendererMixin",
     "LivingEntityMixin",
-    "MinecraftClientMixin",
     "PlayerEntityMixin"
   ],
   "client": [
+    "ItemRendererMixin",
+    "MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1
