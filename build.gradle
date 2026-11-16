@@ -1,102 +1,110 @@
 plugins {
-	id 'org.quiltmc.loom' version '1.0+'
 	id 'maven-publish'
+	id 'org.quiltmc.loom' version '1.4.1'
 }
 
-sourceCompatibility = JavaVersion.VERSION_17
-targetCompatibility = JavaVersion.VERSION_17
+base {
+	archivesName = project.archives_base_name
+}
 
-archivesBaseName = project.archives_base_name
-version = project.mod_version
+version = "${project.mod_version}+${project.minecraft_version}"
 group = project.maven_group
 
 repositories {
-	maven { url 'https://masa.dy.fi/maven' }
+	mavenCentral()
+	// GeckoLib 4
 	maven {
-		url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+		name = 'GeckoLib'
+		url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
 	}
+	// Cardinal Components API (moved from ladysnake.jfrog.io in 2023)
 	maven {
-		name = "Curse"
-		url = "https://www.cursemaven.com"
-	}
-	maven {
-		url "https://maven.jamieswhiteshirt.com/libs-release"
+		name = 'Ladysnake'
+		url = 'https://maven.ladysnake.org/releases'
 		content {
-			includeGroup "com.jamieswhiteshirt"
+			includeGroupByRegex 'dev\\.onyxstudios.*'
+			includeGroupByRegex 'org\\.ladysnake.*'
+			includeGroupByRegex 'io\\.github\\.ladysnake.*'
 		}
 	}
+	// Reach Entity Attributes
 	maven {
-		name "cardinal components, impersonate, player ability lib, trinkets"
-		url "https://ladysnake.jfrog.io/artifactory/mods"
+		name = 'JamiesWhiteShirt'
+		url = 'https://maven.jamieswhiteshirt.com/libs-release'
+		content {
+			includeGroup 'com.jamieswhiteshirt'
+		}
+	}
+}
+
+loom {
+	accessWidenerPath = file('src/main/resources/mason.accesswidener')
+
+	mods {
+		mason {
+			sourceSet('main')
+		}
 	}
 }
 
 dependencies {
-	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings loom.layered {
-		mappings "org.quiltmc:quilt-mappings:${minecraft_version}+build.${quilt_mappings}:intermediary-v2"
-	}
+	mappings "org.quiltmc:quilt-mappings:${project.quilt_mappings}:intermediary-v2"
 	modImplementation "org.quiltmc:quilt-loader:${project.loader_version}"
 
-	modImplementation "org.quiltmc.quilted-fabric-api:quilted-fabric-api:${quilted_fabric_api_version}-${minecraft_version}"
-	modImplementation "software.bernie.geckolib:geckolib-fabric-1.19:${project.geckolib_version}"
+	// QSL comes in transitively through Quilted Fabric API
+	modImplementation "org.quiltmc.quilted-fabric-api:quilted-fabric-api:${project.quilted_fabric_api_version}"
 
+	// GeckoLib 4 (not bundled: install it in mods/ next to this jar)
+	modImplementation "software.bernie.geckolib:geckolib-fabric-1.20.1:${project.geckolib_version}"
+
+	// Cardinal Components (bundled, and depended on in quilt.mod.json so it loads)
 	modImplementation "dev.onyxstudios.cardinal-components-api:cardinal-components-base:${project.cardinal_components_version}"
 	include "dev.onyxstudios.cardinal-components-api:cardinal-components-base:${project.cardinal_components_version}"
 	modImplementation "dev.onyxstudios.cardinal-components-api:cardinal-components-entity:${project.cardinal_components_version}"
 	include "dev.onyxstudios.cardinal-components-api:cardinal-components-entity:${project.cardinal_components_version}"
-	modImplementation "curse.maven:illuminations-292908:3823047"
-	modRuntimeOnly "carpet:fabric-carpet:${project.minecraft_version}-${project.carpet_core_version}"
 
+	// Reach / attack range attributes used by the glaive
 	include modImplementation("com.jamieswhiteshirt:reach-entity-attributes:${project.reach_attributes_version}")
-}
-configurations.all {
-	resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+
+	// Annotations the 1.19 source imports (javax.annotation.Nullable, org.jetbrains.annotations.Nullable)
+	compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+	compileOnly 'org.jetbrains:annotations:24.0.1'
 }
 
 processResources {
-	inputs.property "version", project.version
+	inputs.properties 'version': project.version, 'group': project.group
 
-	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+	filesMatching('quilt.mod.json') {
+		expand 'version': project.version, 'group': project.group
 	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-	// Minecraft 1.18 (1.18-pre2) upwards uses Java 17.
+	it.options.encoding = 'UTF-8'
 	it.options.release = 17
+	// javac stops at 100 errors by default; show them all so the build summary is complete
+	it.options.compilerArgs += ['-Xmaxerrs', '5000']
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
 	withSourcesJar()
 }
 
 jar {
-	from("LICENSE") {
-		rename { "${it}_${project.archivesBaseName}"}
+	from('LICENSE') {
+		rename { "${it}_${project.base.archivesName.get()}" }
 	}
 }
-loom {
-	accessWidenerPath = file("src/main/resources/mason.accesswidener")
-}
 
-// configure the maven publication
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
 			from components.java
 		}
 	}
-
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
 	repositories {
-		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
 	}
 }
